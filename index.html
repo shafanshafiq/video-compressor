@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Video Compressor Tool</title>
+  <title>Robust Video Compressor</title>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
   <style>
     body {
@@ -21,6 +21,7 @@
       margin-top: 20px;
       font-size: 0.9em;
       color: green;
+      white-space: pre-line;
     }
     video {
       width: 100%;
@@ -39,7 +40,7 @@
   </style>
 </head>
 <body>
-  <h2>🎬 All-in-One Video Compressor (Client-side)</h2>
+  <h2>🎬 Robust Video Compressor (Client-side)</h2>
   <input type="file" id="uploader" accept="video/*"><br>
   <label for="quality">Select Compression Quality:</label>
   <select id="quality">
@@ -68,7 +69,7 @@
     const ffmpeg = createFFmpeg({
       log: true,
       progress: (p) => {
-        log.textContent = `⏳ Loading FFmpeg... ${Math.round(p.ratio * 100)}%`;
+        log.textContent = `⏳ FFmpeg Loading: ${Math.round(p.ratio * 100)}%`;
       }
     });
 
@@ -93,18 +94,22 @@
       log.textContent = "⏳ Loading FFmpeg...";
 
       try {
-        if (!ffmpeg.isLoaded()) {
-          await ffmpeg.load();
-          log.textContent = "✅ FFmpeg Loaded!";
-        }
-
-        const inputName = file.name;
+        if (!ffmpeg.isLoaded()) await ffmpeg.load();
+        const inputName = 'input.mp4';
         const outputName = 'compressed_' + Date.now() + '.mp4';
 
         ffmpeg.FS('writeFile', inputName, await fetchFile(file));
         log.textContent = "📦 Compressing video...";
 
-        await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', quality, outputName);
+        await ffmpeg.run(
+          '-i', inputName,
+          '-preset', 'fast',
+          '-vcodec', 'libx264',
+          '-crf', quality,
+          '-movflags', 'faststart',
+          '-pix_fmt', 'yuv420p',
+          outputName
+        );
 
         const data = ffmpeg.FS('readFile', outputName);
         const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -116,7 +121,7 @@
         log.textContent = "✅ Compression complete!";
       } catch (err) {
         console.error("❌ Compression failed:", err);
-        log.textContent = "❌ Compression failed. Try a different video or browser.";
+        log.textContent = "❌ Compression failed. " + err.message + "\nTry a different browser or smaller video.";
       }
     }
   </script>
