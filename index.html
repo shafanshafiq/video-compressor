@@ -32,7 +32,7 @@
     const secret = 'your-api-key-here'; // 🔴 Replace this with your ConvertAPI key
 
     try {
-      const res = await fetch(`https://v2.convertapi.com/convert/mp4/to/mp4?Secret=${secret}&Parameters[VideoCodec]=h264&Parameters[VideoBitrate]=500k`, {
+      const res = await fetch(`https://v2.convertapi.com/convert/mp4/to/mp4?Secret=${secret}`, {
         method: 'POST',
         body: formData
       });
