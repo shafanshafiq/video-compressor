@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>All-in-One Video Compressor</title>
+  <title>Video Compressor Tool</title>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
   <style>
     body {
@@ -27,6 +27,15 @@
       max-height: 300px;
       margin-top: 10px;
     }
+    #downloadLink {
+      display: none;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
@@ -47,65 +56,69 @@
   <h3>Compressed Video Preview</h3>
   <video id="compressedVideo" controls></video>
 
-  <a id="downloadLink" style="display:none;" download="compressed_video.mp4">⬇ Download Compressed Video</a>
+  <a id="downloadLink" download="compressed_video.mp4">⬇ Download Compressed Video</a>
 
   <script>
-  const { createFFmpeg, fetchFile } = FFmpeg;
-  const ffmpeg = createFFmpeg({
-    log: true,
-    progress: (p) => {
-      log.textContent = `⏳ Loading FFmpeg... ${Math.round(p.ratio * 100)}%`;
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const log = document.getElementById('log');
+    const downloadLink = document.getElementById('downloadLink');
+    const originalVideo = document.getElementById('originalVideo');
+    const compressedVideo = document.getElementById('compressedVideo');
+
+    const ffmpeg = createFFmpeg({
+      log: true,
+      progress: (p) => {
+        log.textContent = `⏳ Loading FFmpeg... ${Math.round(p.ratio * 100)}%`;
+      }
+    });
+
+    document.getElementById('uploader').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        originalVideo.src = url;
+        log.textContent = "🎞 Video loaded. Ready to compress.";
+      }
+    });
+
+    async function compressVideo() {
+      const fileInput = document.getElementById('uploader');
+      const quality = document.getElementById('quality').value;
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a video file.");
+        return;
+      }
+
+      log.textContent = "⏳ Loading FFmpeg...";
+
+      try {
+        if (!ffmpeg.isLoaded()) {
+          await ffmpeg.load();
+          log.textContent = "✅ FFmpeg Loaded!";
+        }
+
+        const inputName = file.name;
+        const outputName = 'compressed_' + Date.now() + '.mp4';
+
+        ffmpeg.FS('writeFile', inputName, await fetchFile(file));
+        log.textContent = "📦 Compressing video...";
+
+        await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', quality, outputName);
+
+        const data = ffmpeg.FS('readFile', outputName);
+        const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+        const videoUrl = URL.createObjectURL(videoBlob);
+
+        downloadLink.href = videoUrl;
+        downloadLink.style.display = 'inline-block';
+        compressedVideo.src = videoUrl;
+        log.textContent = "✅ Compression complete!";
+      } catch (err) {
+        console.error("❌ Compression failed:", err);
+        log.textContent = "❌ Compression failed. Try a different video or browser.";
+      }
     }
-  });
-
-  const log = document.getElementById('log');
-  const downloadLink = document.getElementById('downloadLink');
-  const originalVideo = document.getElementById('originalVideo');
-  const compressedVideo = document.getElementById('compressedVideo');
-
-  document.getElementById('uploader').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      originalVideo.src = url;
-    }
-  });
-
-  async function compressVideo() {
-    const fileInput = document.getElementById('uploader');
-    const quality = document.getElementById('quality').value;
-    const file = fileInput.files[0];
-    if (!file) {
-      alert("Please select a video file.");
-      return;
-    }
-
-    log.textContent = "⏳ Loading FFmpeg...";
-    if (!ffmpeg.isLoaded()) {
-      await ffmpeg.load();
-      log.textContent = "✅ FFmpeg Loaded!";
-    }
-
-    const inputName = file.name;
-    const outputName = 'compressed_' + Date.now() + '.mp4';
-
-    log.textContent = "📦 Processing and compressing...";
-
-    ffmpeg.FS('writeFile', inputName, await fetchFile(file));
-
-    await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', quality, outputName);
-
-    const data = ffmpeg.FS('readFile', outputName);
-    const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
-    const videoUrl = URL.createObjectURL(videoBlob);
-
-    downloadLink.href = videoUrl;
-    downloadLink.download = outputName;
-    downloadLink.style.display = 'inline-block';
-    compressedVideo.src = videoUrl;
-    log.textContent = "✅ Compression complete";
-  }
-</script>
-
+  </script>
 </body>
 </html>
