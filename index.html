@@ -3,65 +3,98 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FFmpeg Video Compressor</title>
+  <title>All-in-One Video Compressor</title>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
+      max-width: 700px;
       margin: auto;
       padding: 20px;
       text-align: center;
     }
-    input, button {
+    input, button, select {
       margin: 10px 0;
+      padding: 10px;
     }
     #log {
       margin-top: 20px;
       font-size: 0.9em;
       color: green;
     }
+    video {
+      width: 100%;
+      max-height: 300px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <h2>🎬 Compress Your Video (Client-side)</h2>
+  <h2>🎬 All-in-One Video Compressor (Client-side)</h2>
   <input type="file" id="uploader" accept="video/*"><br>
+  <label for="quality">Select Compression Quality:</label>
+  <select id="quality">
+    <option value="35">Low</option>
+    <option value="28" selected>Medium</option>
+    <option value="23">High</option>
+  </select><br>
   <button onclick="compressVideo()">Compress Video</button>
   <p id="log"></p>
-  <a id="downloadLink" style="display:none;" download="compressed.mp4">Download Compressed Video</a>
+
+  <h3>Original Video Preview</h3>
+  <video id="originalVideo" controls></video>
+
+  <h3>Compressed Video Preview</h3>
+  <video id="compressedVideo" controls></video>
+
+  <a id="downloadLink" style="display:none;" download="compressed_video.mp4">⬇ Download Compressed Video</a>
 
   <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
     const ffmpeg = createFFmpeg({ log: true });
     const log = document.getElementById('log');
     const downloadLink = document.getElementById('downloadLink');
+    const originalVideo = document.getElementById('originalVideo');
+    const compressedVideo = document.getElementById('compressedVideo');
+
+    document.getElementById('uploader').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        originalVideo.src = url;
+      }
+    });
 
     async function compressVideo() {
       const fileInput = document.getElementById('uploader');
+      const quality = document.getElementById('quality').value;
       const file = fileInput.files[0];
       if (!file) {
         alert("Please select a video file.");
         return;
       }
 
-      log.textContent = "Loading FFmpeg...";
-      await ffmpeg.load();
+      log.textContent = "⏳ Loading FFmpeg...";
+      if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-      const fileName = file.name;
-      const outputName = 'output.mp4';
+      const inputName = file.name;
+      const outputName = 'compressed_' + Date.now() + '.mp4';
 
-      log.textContent = "Processing...";
-      ffmpeg.FS('writeFile', fileName, await fetchFile(file));
+      log.textContent = "📦 Processing and compressing...";
 
-      await ffmpeg.run('-i', fileName, '-vcodec', 'libx264', '-crf', '28', outputName);
+      ffmpeg.FS('writeFile', inputName, await fetchFile(file));
+
+      await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', quality, outputName);
 
       const data = ffmpeg.FS('readFile', outputName);
       const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
       const videoUrl = URL.createObjectURL(videoBlob);
 
       downloadLink.href = videoUrl;
+      downloadLink.download = outputName;
       downloadLink.style.display = 'inline-block';
-      log.textContent = "Compression complete ✅";
+      compressedVideo.src = videoUrl;
+      log.textContent = "✅ Compression complete";
     }
   </script>
 </body>
