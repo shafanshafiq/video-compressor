@@ -1,55 +1,68 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Video Compressor</title>
+  <title>FFmpeg Video Compressor</title>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    input, button {
+      margin: 10px 0;
+    }
+    #log {
+      margin-top: 20px;
+      font-size: 0.9em;
+      color: green;
+    }
+  </style>
 </head>
 <body>
-  <div style="max-width:450px;margin:auto;padding:20px;border:1px solid #ccc;border-radius:10px;">
-    <h3>🎬 Compress Your Video</h3>
-    <input type="file" id="uploadVideo" accept="video/*" />
-    <br><br>
-    <button onclick="compressAndDownload()" style="padding:10px 20px;background:#007bff;color:white;border:none;border-radius:5px;">Compress Video</button>
-    <p id="status" style="margin-top:15px;color:green;"></p>
-    <a id="downloadLink" href="#" target="_blank" style="display:none;margin-top:10px;display:inline-block;">⬇ Download Compressed Video</a>
-  </div>
+  <h2>🎬 Compress Your Video (Client-side)</h2>
+  <input type="file" id="uploader" accept="video/*"><br>
+  <button onclick="compressVideo()">Compress Video</button>
+  <p id="log"></p>
+  <a id="downloadLink" style="display:none;" download="compressed.mp4">Download Compressed Video</a>
 
   <script>
-  async function compressAndDownload() {
-    const fileInput = document.getElementById('uploadVideo');
-    const status = document.getElementById('status');
-    const link = document.getElementById('downloadLink');
-    const file = fileInput.files[0];
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    const log = document.getElementById('log');
+    const downloadLink = document.getElementById('downloadLink');
 
-    if (!file) return alert('Please select a video file.');
-
-    status.innerText = 'Uploading & compressing... Please wait ⏳';
-    link.style.display = 'none';
-
-    const formData = new FormData();
-    formData.append('File', file);
-
-    const secret = 'your-api-key-here'; // 🔴 Replace this with your ConvertAPI key
-
-    try {
-      const res = await fetch(`https://v2.convertapi.com/convert/mp4/to/mp4?Secret=${secret}`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await res.json();
-      if (data.Files && data.Files.length > 0) {
-        link.href = data.Files[0].Url;
-        link.style.display = 'inline-block';
-        status.innerText = 'Compression complete ✅';
-      } else {
-        status.innerText = 'Compression failed ❌';
+    async function compressVideo() {
+      const fileInput = document.getElementById('uploader');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a video file.");
+        return;
       }
-    } catch (e) {
-      console.error(e);
-      status.innerText = 'An error occurred.';
+
+      log.textContent = "Loading FFmpeg...";
+      await ffmpeg.load();
+
+      const fileName = file.name;
+      const outputName = 'output.mp4';
+
+      log.textContent = "Processing...";
+      ffmpeg.FS('writeFile', fileName, await fetchFile(file));
+
+      await ffmpeg.run('-i', fileName, '-vcodec', 'libx264', '-crf', '28', outputName);
+
+      const data = ffmpeg.FS('readFile', outputName);
+      const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      const videoUrl = URL.createObjectURL(videoBlob);
+
+      downloadLink.href = videoUrl;
+      downloadLink.style.display = 'inline-block';
+      log.textContent = "Compression complete ✅";
     }
-  }
   </script>
 </body>
 </html>
