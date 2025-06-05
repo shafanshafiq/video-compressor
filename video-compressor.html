@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Compressor</title>
+</head>
+<body>
+  <div style="max-width:450px;margin:auto;padding:20px;border:1px solid #ccc;border-radius:10px;">
+    <h3>🎬 Compress Your Video</h3>
+    <input type="file" id="uploadVideo" accept="video/*" />
+    <br><br>
+    <button onclick="compressAndDownload()" style="padding:10px 20px;background:#007bff;color:white;border:none;border-radius:5px;">Compress Video</button>
+    <p id="status" style="margin-top:15px;color:green;"></p>
+    <a id="downloadLink" href="#" target="_blank" style="display:none;margin-top:10px;display:inline-block;">⬇ Download Compressed Video</a>
+  </div>
+
+  <script>
+  async function compressAndDownload() {
+    const fileInput = document.getElementById('uploadVideo');
+    const status = document.getElementById('status');
+    const link = document.getElementById('downloadLink');
+    const file = fileInput.files[0];
+
+    if (!file) return alert('Please select a video file.');
+
+    status.innerText = 'Uploading & compressing... Please wait ⏳';
+    link.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('File', file);
+
+    const secret = 'your-api-key-here'; // 🔴 Replace this with your ConvertAPI key
+
+    try {
+      const res = await fetch(`https://v2.convertapi.com/convert/mp4/to/mp4?Secret=${secret}&Parameters[VideoCodec]=h264&Parameters[VideoBitrate]=500k`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.Files && data.Files.length > 0) {
+        link.href = data.Files[0].Url;
+        link.style.display = 'inline-block';
+        status.innerText = 'Compression complete ✅';
+      } else {
+        status.innerText = 'Compression failed ❌';
+      }
+    } catch (e) {
+      console.error(e);
+      status.innerText = 'An error occurred.';
+    }
+  }
+  </script>
+</body>
+</html>
