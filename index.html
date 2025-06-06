@@ -1,53 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Fixed Video Compressor</title>
-</head>
+<head><meta charset="UTF-8"><title>Debug Compressor</title></head>
 <body>
-  <h2>Universal Video Compressor</h2>
-  <input type="file" id="videoFile" accept="video/*" />
-  <div id="dropZone" style="border:2px dashed #ccc; padding:20px; margin:20px 0;">
-    Or drag and drop your video here
-  </div>
+  <input type="file" id="videoFile" accept="video/*">
+  <div id="dropZone" style="border:2px dashed #ccc; padding:20px;">Drop video here</div>
   <button id="compressBtn" disabled>Compress Video</button>
-  <div id="loadingSpinner" style="display:none;">Loading FFmpeg...</div>
 
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const videoFile = document.getElementById('videoFile');
       const compressBtn = document.getElementById('compressBtn');
       const dropZone = document.getElementById('dropZone');
-      const spinner = document.getElementById('loadingSpinner');
-
-      const { createFFmpeg, fetchFile } = FFmpeg;
-      const ffmpeg = createFFmpeg({ log: true });
-
       let selectedFile = null;
 
-      videoFile.addEventListener('change', (event) => {
-        selectedFile = event.target.files[0];
-        if (selectedFile) {
-          console.log("File selected:", selectedFile.name);
-          compressBtn.disabled = false;
-        }
+      videoFile.addEventListener('change', e => {
+        selectedFile = e.target.files[0];
+        compressBtn.disabled = !selectedFile;
+        console.log('picker selected:', selectedFile?.name);
       });
 
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        dropZone.style.background = '#e0f7fa';
-      });
-
-      dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        dropZone.style.background = 'transparent';
-      });
-
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        dropZone.style.background = 'transparent';
-
+      dropZone.addEventListener('dragover', e => e.preventDefault());
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('video/')) {
           selectedFile = file;
@@ -55,58 +29,16 @@
           dt.items.add(file);
           videoFile.files = dt.files;
           compressBtn.disabled = false;
-          console.log("File dropped:", file.name);
-        } else {
-          alert("Invalid file. Please drop a video.");
+          console.log('dropped:', selectedFile.name);
         }
       });
 
-      compressBtn.addEventListener('click', async () => {
-        if (!selectedFile) return alert("No video selected.");
-        compressBtn.disabled = true;
-        spinner.style.display = 'block';
-
-        try {
-          if (!ffmpeg.isLoaded()) {
-            await ffmpeg.load();
-          }
-
-          const inName = selectedFile.name;
-          const outName = "compressed_" + Date.now() + ".mp4";
-
-          await ffmpeg.writeFile(inName, await fetchFile(selectedFile));
-
-          await ffmpeg.exec([
-            '-i', inName,
-            '-c:v', 'libx264',
-            '-preset', 'medium',
-            '-crf', '28',
-            '-c:a', 'aac',
-            '-b:a', '128k',
-            '-movflags', '+faststart',
-            outName
-          ]);
-
-          const data = await ffmpeg.readFile(outName);
-          const blob = new Blob([data.buffer], { type: 'video/mp4' });
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = outName;
-          a.textContent = 'Download Compressed Video';
-          a.style.display = 'block';
-          a.style.marginTop = '20px';
-          document.body.appendChild(a);
-        } catch (err) {
-          alert("Compression failed: " + err.message);
-          console.error(err);
-        } finally {
-          spinner.style.display = 'none';
-          compressBtn.disabled = false;
-        }
+      compressBtn.addEventListener('click', () => {
+        console.log('button clicked:', selectedFile?.name);
+        alert('Compress button is working: ' + selectedFile.name);
       });
     });
   </script>
 </body>
 </html>
+
