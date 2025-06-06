@@ -2,39 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Universal Video Compressor</title>
-  <style>
-    /* …[same styling as before]… */
-  </style>
+  <title>Fixed Video Compressor</title>
 </head>
 <body>
-  <div class="container">
-    <h1>Universal Video Compressor</h1>
-
-    <div class="file-input">
-      <label>Select Video File:</label>
-      <input type="file" id="videoFile" accept="video/*">
-    </div>
-
-    <div id="dropZone">Or drag and drop your video here</div>
-
-    <div class="controls">
-      <!-- [Quality, Preset, Resolution controls] -->
-    </div>
-
-    <button id="compressBtn" disabled>Compress Video</button>
-    <div id="loadingSpinner"></div>
-
-    <div id="progressContainer">
-      <p>Compressing... <span id="progressText">0%</span></p>
-      <progress id="progressBar" value="0" max="100"></progress>
-    </div>
-
-    <div id="outputContainer">
-      <!-- [file info + preview + download link] -->
-    </div>
+  <h2>Universal Video Compressor</h2>
+  <input type="file" id="videoFile" accept="video/*" />
+  <div id="dropZone" style="border:2px dashed #ccc; padding:20px; margin:20px 0;">
+    Or drag and drop your video here
   </div>
+  <button id="compressBtn" disabled>Compress Video</button>
+  <div id="loadingSpinner" style="display:none;">Loading FFmpeg...</div>
 
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script>
@@ -43,89 +20,87 @@
       const compressBtn = document.getElementById('compressBtn');
       const dropZone = document.getElementById('dropZone');
       const spinner = document.getElementById('loadingSpinner');
-      // ... [other UI elements like progressBar, selectors] ...
-      
-      let selectedFile = null;
 
       const { createFFmpeg, fetchFile } = FFmpeg;
       const ffmpeg = createFFmpeg({ log: true });
 
-      videoFile.addEventListener('change', (e) => {
-        selectedFile = e.target.files[0];
-        compressBtn.disabled = !selectedFile;
+      let selectedFile = null;
+
+      videoFile.addEventListener('change', (event) => {
+        selectedFile = event.target.files[0];
+        if (selectedFile) {
+          console.log("File selected:", selectedFile.name);
+          compressBtn.disabled = false;
+        }
       });
 
       dropZone.addEventListener('dragover', (e) => {
         e.preventDefault(); e.stopPropagation();
         dropZone.style.background = '#e0f7fa';
       });
+
       dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault(); e.stopPropagation();
         dropZone.style.background = 'transparent';
       });
+
       dropZone.addEventListener('drop', (e) => {
         e.preventDefault(); e.stopPropagation();
         dropZone.style.background = 'transparent';
+
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('video/')) {
           selectedFile = file;
-          videoFile.files = e.dataTransfer.files;
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          videoFile.files = dt.files;
           compressBtn.disabled = false;
+          console.log("File dropped:", file.name);
         } else {
-          alert('Please drop a valid video file.');
+          alert("Invalid file. Please drop a video.");
         }
       });
 
       compressBtn.addEventListener('click', async () => {
-        if (!selectedFile) return alert('Please select a video file first.');
-
-        compressBtn.disabled = spinner.style.display = 'block';
+        if (!selectedFile) return alert("No video selected.");
+        compressBtn.disabled = true;
+        spinner.style.display = 'block';
 
         try {
           if (!ffmpeg.isLoaded()) {
-            ffmpeg.setProgress(({ ratio }) => {
-              const p = Math.round(ratio * 100);
-              document.getElementById('progressBar').value = p;
-              document.getElementById('progressText').textContent = `${p}%`;
-            });
             await ffmpeg.load();
           }
 
-          // Write, exec, read, and display results
           const inName = selectedFile.name;
-          const outName = 'compressed_' + Date.now() + '.mp4';
-          const crf = document.getElementById('quality').value;
-          const preset = document.getElementById('preset').value;
-          const res = document.getElementById('resolution').value;
-
-          let args = ['-i', inName, '-c:v', 'libx264', '-preset', preset, '-crf', crf, '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart'];
-          if (res !== 'original') args.push('-vf', `scale=-2:${res}`);
-          args.push(outName);
+          const outName = "compressed_" + Date.now() + ".mp4";
 
           await ffmpeg.writeFile(inName, await fetchFile(selectedFile));
-          await ffmpeg.exec(args);
+
+          await ffmpeg.exec([
+            '-i', inName,
+            '-c:v', 'libx264',
+            '-preset', 'medium',
+            '-crf', '28',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            outName
+          ]);
+
           const data = await ffmpeg.readFile(outName);
           const blob = new Blob([data.buffer], { type: 'video/mp4' });
           const url = URL.createObjectURL(blob);
 
-          // Display info and preview
-          document.getElementById('originalSize').textContent = `Original: ${(selectedFile.size / 1048576).toFixed(2)} MB`;
-          document.getElementById('compressedSize').textContent = `Compressed: ${(blob.size / 1048576).toFixed(2)} MB`;
-          document.getElementById('compressionRatio').textContent = `Reduced by: ${((selectedFile.size - blob.size) / selectedFile.size * 100).toFixed(2)}%`;
-
-          const dl = document.getElementById('downloadLink');
-          dl.href = url;
-          dl.download = outName;
-
-          const v = document.getElementById('previewVideo');
-          v.src = url;
-          v.style.display = 'block';
-          document.getElementById('outputContainer').style.display = 'block';
-
-          await ffmpeg.deleteFile(inName);
-          await ffmpeg.deleteFile(outName);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = outName;
+          a.textContent = 'Download Compressed Video';
+          a.style.display = 'block';
+          a.style.marginTop = '20px';
+          document.body.appendChild(a);
         } catch (err) {
-          alert(`Compression error: ${err.message}`);
+          alert("Compression failed: " + err.message);
+          console.error(err);
         } finally {
           spinner.style.display = 'none';
           compressBtn.disabled = false;
