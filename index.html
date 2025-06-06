@@ -1,129 +1,330 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Robust Video Compressor</title>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Universal Video Compressor</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      max-width: 700px;
-      margin: auto;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
       padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
       text-align: center;
+      margin-bottom: 20px;
     }
-    input, button, select {
-      margin: 10px 0;
-      padding: 10px;
+    .file-input, #dropZone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px 0;
     }
-    #log {
-      margin-top: 20px;
-      font-size: 0.9em;
-      color: green;
-      white-space: pre-line;
-    }
-    video {
+    #dropZone {
+      border: 2px dashed #ccc;
+      padding: 20px;
       width: 100%;
-      max-height: 300px;
-      margin-top: 10px;
+      text-align: center;
+      transition: background 0.3s;
     }
-    #downloadLink {
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .control-group {
+      flex: 1;
+      min-width: 200px;
+    }
+    select, input[type="range"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+    #progressContainer {
+      margin: 20px 0;
+      display: none;
+    }
+    progress {
+      width: 100%;
+      height: 20px;
+      border-radius: 4px;
+    }
+    #outputContainer {
       display: none;
       margin-top: 20px;
-      padding: 10px 20px;
-      background-color: #28a745;
+    }
+    .video-preview {
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 4px;
+    }
+    .file-info {
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    #downloadLink {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 10px 15px;
+      background-color: #2ecc71;
       color: white;
       text-decoration: none;
-      border-radius: 5px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    #downloadLink:hover {
+      background-color: #27ae60;
+    }
+    #loadingSpinner {
+      display: none;
+      margin: 20px auto;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+      .controls {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
-  <h2>🎬 Robust Video Compressor (Client-side)</h2>
-  <input type="file" id="uploader" accept="video/*"><br>
-  <label for="quality">Select Compression Quality:</label>
-  <select id="quality">
-    <option value="35">Low</option>
-    <option value="28" selected>Medium</option>
-    <option value="23">High</option>
-  </select><br>
-  <button onclick="compressVideo()">Compress Video</button>
-  <p id="log"></p>
+  <div class="container">
+    <h1>Universal Video Compressor</h1>
 
-  <h3>Original Video Preview</h3>
-  <video id="originalVideo" controls></video>
+    <div class="file-input">
+      <label for="videoFile">Select Video File:</label>
+      <input type="file" id="videoFile" accept="video/*">
+    </div>
 
-  <h3>Compressed Video Preview</h3>
-  <video id="compressedVideo" controls></video>
+    <div id="dropZone">Or drag and drop your video here</div>
 
-  <a id="downloadLink" download="compressed_video.mp4">⬇ Download Compressed Video</a>
+    <div class="controls">
+      <div class="control-group">
+        <label for="quality">Quality (CRF 18-32):</label>
+        <input type="range" id="quality" min="18" max="32" value="28">
+        <span id="qualityValue">28</span>
+      </div>
 
+      <div class="control-group">
+        <label for="preset">Speed vs Size:</label>
+        <select id="preset">
+          <option value="ultrafast">Ultra Fast</option>
+          <option value="superfast">Super Fast</option>
+          <option value="veryfast">Very Fast</option>
+          <option value="faster">Faster</option>
+          <option value="fast">Fast</option>
+          <option value="medium" selected>Medium</option>
+          <option value="slow">Slow</option>
+          <option value="slower">Slower</option>
+          <option value="veryslow">Very Slow</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="resolution">Resolution:</label>
+        <select id="resolution">
+          <option value="original">Original</option>
+          <option value="1080">1080p</option>
+          <option value="720" selected>720p</option>
+          <option value="480">480p</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="compressBtn" disabled>Compress Video</button>
+    <div id="loadingSpinner"></div>
+
+    <div id="progressContainer">
+      <p>Compressing... <span id="progressText">0%</span></p>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="outputContainer">
+      <div class="file-info" id="originalSize"></div>
+      <div class="file-info" id="compressedSize"></div>
+      <div class="file-info" id="compressionRatio"></div>
+      <a id="downloadLink" href="#" download="compressed_video.mp4">Download Compressed Video</a>
+      <video id="previewVideo" class="video-preview" controls style="display: none;"></video>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script>
-    const { createFFmpeg, fetchFile } = FFmpeg;
-    const log = document.getElementById('log');
-    const downloadLink = document.getElementById('downloadLink');
-    const originalVideo = document.getElementById('originalVideo');
-    const compressedVideo = document.getElementById('compressedVideo');
+    document.addEventListener('DOMContentLoaded', () => {
+      const videoFile = document.getElementById('videoFile');
+      const compressBtn = document.getElementById('compressBtn');
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      const outputContainer = document.getElementById('outputContainer');
+      const originalSizeText = document.getElementById('originalSize');
+      const compressedSizeText = document.getElementById('compressedSize');
+      const compressionRatioText = document.getElementById('compressionRatio');
+      const downloadLink = document.getElementById('downloadLink');
+      const previewVideo = document.getElementById('previewVideo');
+      const qualitySlider = document.getElementById('quality');
+      const qualityValue = document.getElementById('qualityValue');
+      const presetSelect = document.getElementById('preset');
+      const resolutionSelect = document.getElementById('resolution');
+      const dropZone = document.getElementById('dropZone');
+      const spinner = document.getElementById('loadingSpinner');
 
-    const ffmpeg = createFFmpeg({
-      log: true,
-      progress: (p) => {
-        log.textContent = `⏳ FFmpeg Loading: ${Math.round(p.ratio * 100)}%`;
-      }
+      const { createFFmpeg, fetchFile } = FFmpeg;
+      const ffmpeg = createFFmpeg({ log: true });
+
+      let selectedFile = null;
+
+      qualitySlider.addEventListener('input', () => {
+        qualityValue.textContent = qualitySlider.value;
+      });
+
+      videoFile.addEventListener('change', (event) => {
+        selectedFile = event.target.files[0];
+        if (selectedFile) {
+          outputContainer.style.display = 'none';
+          progressContainer.style.display = 'none';
+          compressBtn.disabled = false;
+        } else {
+          compressBtn.disabled = true;
+        }
+      });
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.background = '#e0f7fa';
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.style.background = 'transparent';
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.background = 'transparent';
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('video/')) {
+          videoFile.files = e.dataTransfer.files;
+          videoFile.dispatchEvent(new Event('change'));
+        } else {
+          alert('Please drop a valid video file.');
+        }
+      });
+
+      compressBtn.addEventListener('click', async () => {
+        if (!selectedFile) return alert('Please select a video file first.');
+
+        compressBtn.disabled = true;
+        spinner.style.display = 'block';
+        progressContainer.style.display = 'block';
+        outputContainer.style.display = 'none';
+        progressBar.value = 0;
+        progressText.textContent = '0%';
+
+        try {
+          if (!ffmpeg.isLoaded()) {
+            ffmpeg.setProgress(({ ratio }) => {
+              const percent = Math.round(ratio * 100);
+              progressBar.value = percent;
+              progressText.textContent = `${percent}%`;
+            });
+            await ffmpeg.load();
+          }
+
+          const inputFileName = selectedFile.name;
+          const outputFileName = `compressed_${Date.now()}.mp4`;
+          const crf = qualitySlider.value;
+          const preset = presetSelect.value;
+          const resolution = resolutionSelect.value;
+
+          let args = [
+            '-i', inputFileName,
+            '-c:v', 'libx264',
+            '-preset', preset,
+            '-crf', crf,
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart'
+          ];
+
+          if (resolution !== 'original') {
+            args.push('-vf', `scale=-2:${resolution}`);
+          }
+
+          args.push(outputFileName);
+
+          await ffmpeg.writeFile(inputFileName, await fetchFile(selectedFile));
+          await ffmpeg.exec(args);
+          const data = await ffmpeg.readFile(outputFileName);
+          const blob = new Blob([data.buffer], { type: 'video/mp4' });
+          const url = URL.createObjectURL(blob);
+
+          originalSizeText.textContent = `Original: ${(selectedFile.size / 1048576).toFixed(2)} MB`;
+          compressedSizeText.textContent = `Compressed: ${(blob.size / 1048576).toFixed(2)} MB`;
+          const ratio = ((selectedFile.size - blob.size) / selectedFile.size * 100).toFixed(2);
+          compressionRatioText.textContent = `Reduced by: ${ratio}%`;
+
+          downloadLink.href = url;
+          downloadLink.download = outputFileName;
+          previewVideo.src = url;
+          previewVideo.style.display = 'block';
+          outputContainer.style.display = 'block';
+
+          await ffmpeg.deleteFile(inputFileName);
+          await ffmpeg.deleteFile(outputFileName);
+        } catch (err) {
+          console.error(err);
+          alert(`Compression failed: ${err.message || err}`);
+        } finally {
+          spinner.style.display = 'none';
+          compressBtn.disabled = false;
+        }
+      });
     });
-
-    document.getElementById('uploader').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        originalVideo.src = url;
-        log.textContent = "🎞 Video loaded. Ready to compress.";
-      }
-    });
-
-    async function compressVideo() {
-      const fileInput = document.getElementById('uploader');
-      const quality = document.getElementById('quality').value;
-      const file = fileInput.files[0];
-      if (!file) {
-        alert("Please select a video file.");
-        return;
-      }
-
-      log.textContent = "⏳ Loading FFmpeg...";
-
-      try {
-        if (!ffmpeg.isLoaded()) await ffmpeg.load();
-        const inputName = 'input.mp4';
-        const outputName = 'compressed_' + Date.now() + '.mp4';
-
-        ffmpeg.FS('writeFile', inputName, await fetchFile(file));
-        log.textContent = "📦 Compressing video...";
-
-        await ffmpeg.run(
-          '-i', inputName,
-          '-preset', 'fast',
-          '-vcodec', 'libx264',
-          '-crf', quality,
-          '-movflags', 'faststart',
-          '-pix_fmt', 'yuv420p',
-          outputName
-        );
-
-        const data = ffmpeg.FS('readFile', outputName);
-        const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
-        const videoUrl = URL.createObjectURL(videoBlob);
-
-        downloadLink.href = videoUrl;
-        downloadLink.style.display = 'inline-block';
-        compressedVideo.src = videoUrl;
-        log.textContent = "✅ Compression complete!";
-      } catch (err) {
-        console.error("❌ Compression failed:", err);
-        log.textContent = "❌ Compression failed. " + err.message + "\nTry a different browser or smaller video.";
-      }
-    }
   </script>
 </body>
 </html>
